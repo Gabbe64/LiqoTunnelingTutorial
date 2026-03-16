@@ -5,7 +5,8 @@ This repo introduces a generic external-networking scaffold to simplify the inte
 > **Disclaimer:**<br>
 > If your clusters are already connected through an existing L3 network tunnel (for example, a cloud provider VPC/VNet interconnection), you do **not** need to implement a new tunneling technology in Liqo.
 > In this case, install Liqo with networking disabled, run it in offloading-only mode ([description here](https://docs.liqo.io/en/v1.1.2/advanced/use-only-offloading.html)).
-> At this point you need to ensure that this external tunnel provides routability for the Pods.
+> This setup works as long as the external tunnel already routes traffic between the clusters Pod CIDRs.
+<br><br>
 > This tutorial is intended for scenarios where Liqo must also provide the inter-cluster tunnel itself.
 
 At the time of writing, Liqo only supports WireGuard as the tunneling technology for [inter-cluster networking](https://docs.liqo.io/en/v1.1.2/advanced/peering/inter-cluster-network.html) (also referred to as 'external networking'). This guide is intended for developers who wish to integrate a new tunneling technology into Liqo.
