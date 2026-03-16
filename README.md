@@ -143,7 +143,7 @@ Recommended mental model for the four resources:
   * they contain both fixed/default protocol knobs and placeholders/fields that will be resolved from the specific peering context.
     * [Example of the Wireguard server default template](tutorial-content/wireguardGwServerTemplate.yaml). 
   * dynamic values are derived from the corresponding `GatewayServer`/`GatewayClient` applied to the cluster, for example **endpoint addresses**, **ports**, **service type**, and other connectivity parameters.
-    * These values are easy to spot in the templates, as they are surrounded by `{{ }}`. For a practical example check the `Deployment`[ at line 34](tutorial-content/wireguardGwServerTemplate.yaml), the `Service`[ at line 192](tutorial-content/wireguardGwServerTemplate.yaml) and the reference to a `Secret` [at line 190](tutorial-content/wireguardGwServerTemplate.yaml).
+    * These values are easy to spot in the templates, as they are surrounded by `{{ }}`. For a practical example check the `Deployment` [here](tutorial-content/wireguardGwServerTemplate.yaml#L34), the `Service` [here](tutorial-content/wireguardGwServerTemplate.yaml#L192) and the reference to a `Secret` [here](tutorial-content/wireguardGwServerTemplate.yaml#L190).
 * `<protocol>GatewayServer` and `<protocol>GatewayClient` are **concrete rendered resources**:
   * they should contain the effective values that will actually be reconciled and consumed at runtime
   * they represent the final desired state for that specific peering pair
