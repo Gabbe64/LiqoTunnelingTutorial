@@ -3,8 +3,9 @@
 This branch introduces a generic external-networking scaffold to simplify the integration of additional tunneling technologies [in Liqo](https://liqo.io/).
 
 At the time of writing, Liqo only supports WireGuard as the tunneling technology for [inter-cluster networking](https://docs.liqo.io/en/v1.1.2/advanced/peering/inter-cluster-network.html) (also referred to as 'external networking'). This guide is intended for developers who wish to integrate a new tunneling technology into Liqo.
+Note that the `liqoctl` integration will not be covered by this guide.
 
-If you encounter problems during implementation, we suggest either using the WireGuard implementation as an example.
+We recommend to follow this guide and check the mentioned resources in a basic Liqo deployment, like the [multi-cluster deployment mentioned here](https://docs.liqo.io/en/v1.1.2/examples/replicated-deployments.html).
 
 Regarding this topic, Liqo design separates:
 
@@ -14,15 +15,9 @@ Regarding this topic, Liqo design separates:
 ## Table of contents
 
 * [Architecture overview and control flow](#architecture-overview-and-control-flow)
-  * [Component ownership](#component-ownership)
   * [Gateway Pod architecture](#gateway-pod-architecture)
-  * [End-to-end control flow (declarative to runtime)](#end-to-end-control-flow-declarative-to-runtime)
-  * [What you need to implement](#what-you-need-to-implement)
-  * [Reusable protocol-agnostic components already provided](#reusable-protocol-agnostic-components-already-provided)
-  * [Connection lifecycle in this architecture](#connection-lifecycle-in-this-architecture)
-  * [Development checklist](#development-checklist)
+  * [End-to-end flow of the gateways creation (declarative to runtime)](#end-to-end-flow-of-the-gateways-creation-declarative-to-runtime)
 * [Implementation walkthrough](#implementation-walkthrough)
-  * [Change map (quick navigation)](#change-map-quick-navigation)
   * [1. Create and generate protocol CRDs](#1-create-and-generate-protocol-crds)
   * [2. Implement generic external-network controllers for your protocol](#2-implement-generic-external-network-controllers-for-your-protocol)
     * [2.1 Implement the protocol interface wrappers](#21-implement-the-protocol-interface-wrappers)
@@ -40,7 +35,7 @@ Regarding this topic, Liqo design separates:
 
 ## Architecture overview and control flow
 
-At a high level, this system is easier to understand as two responsibility layers:
+At a high level, Liqo, when regarding the inter-cluster networking [(described here in the official docs)](https://docs.liqo.io/en/v1.1.2/advanced/peering/inter-cluster-network.html) is easier to understand as two responsibility layers:
 
 * **Control layer (controller-manager)**: translates desired state (defined by the `GatewayServer`/`GatewayClient` CRDs) into Kubernetes resources.
 * **Data-path runtime layer (gateway pod)**: runs protocol containers, orchestrates startup order, and reports connection health.
@@ -54,6 +49,10 @@ Its responsibilities are:
 * forward traffic and apply routing/NAT decisions between the two networking planes
 
 In the default architecture, the gateway pod has three containers:
+
+<div style="background-color: white; padding: 20px; display: inline-block;">
+  <img src="tutorial-content/images/gatewayPod.svg" alt="Logo">
+</div>
 
 1. **Geneve container**:
   * creates and manages Geneve-related interfaces
@@ -76,60 +75,37 @@ Why this matters for a new protocol:
 
 ### End-to-end flow of the gateways creation (declarative to runtime)
 
-Liqo supports a declarative model ([described here](https://docs.liqo.io/en/v1.1.2/advanced/peering/peering-via-cr.html)) where users define intent, and controllers materialize runtime resources.
+Liqo supports a declarative model ([described here](https://docs.liqo.io/en/v1.1.2/advanced/peering/peering-via-cr.html)) where users define intent, and controllers create runtime resources.
 
-Typical flow between two clusters:
+**Note**: the client/server distinction here applies only to the tunnel termination processes. Within Liqo, roles are defined as **Provider** and **Consumer**, and both can function as either client or server in this specific context.
+
+<div align="center" style="background-color: white; padding: 20px; display: inline-block;">
+  <img src="tutorial-content/images/gwserverclient.svg" alt="Logo">
+</div>
+
+What happens at gateway creation:
 
 1. On cluster A, the user creates a `GatewayClient` resource.
 2. On cluster B, the user creates a `GatewayServer` resource.
-3. Each resource carries protocol-independent data (for example endpoint info, port configuration) and **references the protocol template to use**:
+3. Both these CRs carry protocol-independent data (for example endpoint info, port configuration) and **references the protocol template to use**:
   * `GatewayServer` -> `<Protocol>GatewayServerTemplate`
   * `GatewayClient` -> `<Protocol>GatewayClientTemplate`
-4. Templates define the concrete resources to instantiate (deployment template, server-side service template where applicable, and protocol-specific knobs).
-5. Generic + protocol-specific controllers fill template data using `GatewayServer`/`GatewayClient` values and create:
+4. **Templates** define the concrete resources to instantiate.
+(`Deployment` template, server-side `Service` template, and protocol-specific knobs.)
+5. Generic + protocol-specific controllers **fill template data** using `GatewayServer`/`GatewayClient` values and create:
   * `<protocol>GatewayServer`
   * `<protocol>GatewayClient`
-6. Runtime containers in the gateway pod are then deployed and they configure the tunnel implementation.
+6. Runtime containers in the gateway Pod are then deployed and they configure the tunnel implementation.
 7. After the tunnel is successfully established, a controller running inside the protocol-specific container creates the `Connection CR` with initial status `Connecting`.
 8. [Connection checker controller](pkg/gateway/connection/connections_controller.go) (which runs inside the `gateway` container) verifies reachability and updates runtime status/latency (`Connected`/`ConnectionError`).
 
+This flow can be easily replicated by following [this guide provided in the Liqo docs](https://docs.liqo.io/en/v1.1.2/advanced/peering/peering-via-cr.html).
 
-Template selection rules ([here is an example of the one used by Wireguard](deployments/liqo/templates/liqo-wireguard-gateway-server-template.yaml)):
-
-* A template can be used only if it is already present in the cluster.
-* `GatewayServer`/`GatewayClient` must reference the name of the desired template explicitly at creation time.
-
-### Component ownership
-
-| Component | Main files | Responsibility |
-|---|---|---|
-| Generic external-network reconcilers | [pkg/liqo-controller-manager/networking/external-network/generic/genericgatewayserver_controller.go](pkg/liqo-controller-manager/networking/external-network/generic/genericgatewayserver_controller.go)<br>and<br>[pkg/liqo-controller-manager/networking/external-network/generic/genericgatewayclient_controller.go](pkg/liqo-controller-manager/networking/external-network/generic/genericgatewayclient_controller.go) | Reconcile protocol CRs through generic interfaces, enforce base resources (Deployment/Service/ServiceAccount/ClusterRoleBinding), update endpoint-related status, invoke protocol callbacks. |
-| Protocol-specific external-network package | [pkg/liqo-controller-manager/networking/external-network](pkg/liqo-controller-manager/networking/external-network)/&lt;protocol&gt;/... | Implement protocol adapters, callback logic, optional watches/predicates/enqueuers, and protocol-specific validation/reconciliation hooks. |
-| Controller-manager startup wiring | [cmd/liqo-controller-manager/modules/networking.go](cmd/liqo-controller-manager/modules/networking.go) | Instantiate protocol reconcilers and register them with manager (`SetupWithManager`). |
-| Gateway orchestrator container | [cmd/gateway/main.go](cmd/gateway/main.go) | Run shared connection/route/firewall runtime controllers and coordinate concurrent container startup. |
-| Protocol runtime container bootstrap | [pkg/gateway/generic/container.go](pkg/gateway/generic/container.go)<br>[cmd/gateway](cmd/gateway)/&lt;protocol&gt;/main.go | Start protocol-specific runtime manager, optionally synchronize startup via IPC, run protocol runtime logic. |
-| Connection health/status path | [pkg/gateway/connection/connections_controller.go](pkg/gateway/connection/connections_controller.go)<br>[pkg/gateway/connection/conncheck](pkg/gateway/connection/conncheck) | Protocol-agnostic health checks and status transitions (`Connecting` -> `Connected`/`ConnectionError`). |
 
 
 ## Implementation walkthrough
 
-This section describes the practical steps to implement a new protocol in this branch.
-
-### Map of the changes (for quick files navigation)
-
-| Area | Files to touch | Mandatory | Brief purpose |
-|---|---|---|---|
-| Protocol CRDs | [apis/networking/v1beta1](apis/networking/v1beta1)/&lt;protocol&gt;gatewayclient_types.go<br>[apis/networking/v1beta1](apis/networking/v1beta1)/&lt;protocol&gt;gatewayclienttemplate_types.go<br>[apis/networking/v1beta1](apis/networking/v1beta1)/&lt;protocol&gt;gatewayserver_types.go<br>[apis/networking/v1beta1](apis/networking/v1beta1)/&lt;protocol&gt;gatewayservertemplate_types.go | Yes | Define protocol API contracts (`Spec`/`Status`) and schema validation. |
-| CRD/RBAC generation | [Makefile](Makefile) targets: `manifests`, `rbacs`, `generate` | Yes | Regenerate CRDs and RBAC after API/controller changes. |
-| Generic external-network wiring | [pkg/liqo-controller-manager/networking/external-network/generic/genericgatewayclient_controller.go](pkg/liqo-controller-manager/networking/external-network/generic/genericgatewayclient_controller.go)<br>[pkg/liqo-controller-manager/networking/external-network/generic/genericgatewayserver_controller.go](pkg/liqo-controller-manager/networking/external-network/generic/genericgatewayserver_controller.go) | Yes | Bind protocol-specific wrappers and callbacks to shared reconciliation flow. |
-| Protocol external-network package | [pkg/liqo-controller-manager/networking/external-network](pkg/liqo-controller-manager/networking/external-network)/&lt;protocol&gt;/... | Yes | Implement protocol adapters: options, utilities, predicates, enqueuers, custom watches. |
-| Controller-manager startup | [cmd/liqo-controller-manager/modules/networking.go](cmd/liqo-controller-manager/modules/networking.go) | Yes | Instantiate protocol reconcilers and register them with manager (`SetupWithManager`). They will run in the `liqo-controller-manager` Pod |
-| Shared container scaffold | [pkg/gateway/generic/container.go](pkg/gateway/generic/container.go) | Recommended | Reuse manager bootstrap and startup synchronization pattern. |
-| Protocol runtime entrypoint | [cmd/gateway](cmd/gateway)/&lt;protocol&gt;/main.go | Yes | Start protocol runtime process and integrate startup/orchestration behavior using the shared scaffolding functions defined in [pkg/gateway/generic/container.go](pkg/gateway/generic/container.go). |
-| Protocol tunnel runtime | [pkg/gateway/tunnel](pkg/gateway/tunnel)/&lt;protocol&gt;/... | Yes | Implement tunnel session/device setup and protocol runtime lifecycle. |
-| Connection bootstrap | [pkg/gateway/tunnel](pkg/gateway/tunnel)/&lt;protocol&gt;/k8s.go (or equivalent) | Yes | Create/update `Connection` and initialize state (`Connecting`). |
-| Connection status checks | [pkg/gateway/connection/connections_controller.go](pkg/gateway/connection/connections_controller.go)<br>[pkg/gateway/connection/conncheck](pkg/gateway/connection/conncheck) | Usually no changes | Shared, protocol-agnostic status and latency updates. |
-| Deployment wiring | [deployments/liqo](deployments/liqo) (gateway manifests/charts) | Yes | Ensure new protocol container image, args, env, and container names are declared. |
+This section describes the practical steps to implement a new tunneling protocol in Liqo.
 
 ### 1. Create and generate protocol CRDs
 
@@ -157,12 +133,15 @@ Recommended mental model for the four resources:
 
 * `<protocol>GatewayServerTemplate` and `<protocol>GatewayClientTemplate` are **blueprints**:
   * they define the skeleton used by the rendering function ([code here](pkg/liqo-controller-manager/networking/external-network/utils/template.go))
-  * they contain both fixed/default protocol knobs and placeholders/fields that will be resolved from the specific peering context
-  * dynamic values are typically derived from the corresponding `GatewayServer`/`GatewayClient` intent, for example endpoint addresses, ports, service type, and other connectivity parameters
+  * they contain both fixed/default protocol knobs and placeholders/fields that will be resolved from the specific peering context.
+    * [Example of the Wireguard server default template](tutorial-content/wireguardGwServerTemplate.yaml). 
+  * dynamic values are derived from the corresponding `GatewayServer`/`GatewayClient` applied to the cluster, for example **endpoint addresses**, **ports**, **service type**, and other connectivity parameters.
+    * These values are easy to spot in the templates, as they are surrounded by `{{ }}`. For a practical example check the `Deployment`[ at line 34](tutorial-content/wireguardGwServerTemplate.yaml), the `Service`[ at line 192](tutorial-content/wireguardGwServerTemplate.yaml) and the reference to a `Secret` [at line 190](tutorial-content/wireguardGwServerTemplate.yaml).
 * `<protocol>GatewayServer` and `<protocol>GatewayClient` are **concrete rendered resources**:
   * they should contain the effective values that will actually be reconciled and consumed at runtime
   * they represent the final desired state for that specific peering pair
   * they are managed as normal CRDs by the protocol controllers (status updates, endpoint updates, secret handling, etc.)
+  * they are the "filled" version of the template.
 
 In practice, this means:
 
@@ -200,7 +179,7 @@ Files to update:
 
 * [pkg/liqo-controller-manager/networking/external-network/generic/genericgatewayclient_controller.go](pkg/liqo-controller-manager/networking/external-network/generic/genericgatewayclient_controller.go)
 * [pkg/liqo-controller-manager/networking/external-network/generic/genericgatewayserver_controller.go](pkg/liqo-controller-manager/networking/external-network/generic/genericgatewayserver_controller.go)
-* [pkg/liqo-controller-manager/networking/external-network](pkg/liqo-controller-manager/networking/external-network)/&lt;protocol&gt;/ (new package with protocol wiring and helpers)
+* [pkg/liqo-controller-manager/networking/external-network](pkg/liqo-controller-manager/networking/external-network)/&lt;protocol&gt;/ (new package with protocol wiring and helpers, if needed)
 
 Reference implementation:
 
@@ -211,6 +190,7 @@ Responsibility of this module:
 
 * Translate desired state (`GatewayClient` / `GatewayServer`) into protocol-specific resources.
 * Connect protocol behavior to the generic reconciliation framework through interfaces and callbacks.
+* Implement specific reconciliation logic based on the specific protocol used.
 
 #### 2.1 Implement the protocol interface wrappers
 
@@ -293,17 +273,14 @@ Execution timing:
 * Status-related callback writes should happen before final `Status().Update(...)` in the reconciler deferred section.
 * `CustomBuilderSetup` is applied in `SetupWithManager(...)` at controller registration time.
 
-Implementation advice:
-
-* Keep callback functions small and side-effect focused.
-* Put heavy protocol logic in [pkg/liqo-controller-manager/networking/external-network](pkg/liqo-controller-manager/networking/external-network)/&lt;protocol&gt;/utils.go or dedicated files, not inline in reconciler constructors.
-* Return explicit errors; generic reconcilers already record events and bubble errors.
 
 Files to update:
 
 * [pkg/liqo-controller-manager/networking/external-network](pkg/liqo-controller-manager/networking/external-network)/&lt;protocol&gt;/ (new files, for example `options.go` and `utils.go`)
 * [pkg/liqo-controller-manager/networking/external-network/generic/genericgatewayclient_controller.go](pkg/liqo-controller-manager/networking/external-network/generic/genericgatewayclient_controller.go) (options wiring)
 * [pkg/liqo-controller-manager/networking/external-network/generic/genericgatewayserver_controller.go](pkg/liqo-controller-manager/networking/external-network/generic/genericgatewayserver_controller.go) (options wiring)
+
+**Note**: this part is highly dependant on the chosen protocol and how it works, hence this part should be used more like a guideline instead of an actual tutorial. 
 
 #### 2.3 Extend builder setup when needed
 
@@ -321,7 +298,9 @@ Files to update:
 * [pkg/liqo-controller-manager/networking/external-network/generic/genericgatewayclient_controller.go](pkg/liqo-controller-manager/networking/external-network/generic/genericgatewayclient_controller.go) (custom builder hook wiring)
 * [pkg/liqo-controller-manager/networking/external-network/generic/genericgatewayserver_controller.go](pkg/liqo-controller-manager/networking/external-network/generic/genericgatewayserver_controller.go) (custom builder hook wiring)
 
-Example shape:
+
+<details>
+  <summary>Example of the CustomBuilder:</summary>
 
 ```go
 CustomBuilderSetup: func(b *builder.Builder) *builder.Builder {
@@ -332,6 +311,7 @@ CustomBuilderSetup: func(b *builder.Builder) *builder.Builder {
       builder.WithPredicates(filterProtocolSecretsPredicate()))
 }
 ```
+</details>
 
 #### 2.4 Detailed responsibilities of generic server/client reconcilers
 
@@ -363,7 +343,7 @@ Why this split matters:
 
 ### 3. Start protocol controllers from controller-manager
 
-Defining protocol controllers is not enough: they must be instantiated and registered in the controller manager startup path.
+Defining protocol controllers is not enough: they must be instantiated and registered in the controller manager startup path, this means that the `liqo-controller-manager` needs to be rebuilt.
 
 For each protocol controller:
 
@@ -371,35 +351,39 @@ For each protocol controller:
 2. Call `SetupWithManager(...)`.
 3. Ensure required options/callbacks are correctly injected.
 
+Also, the `liqo-controller-manager` needs to be aware of the new gateway CRDs installed, so make sure to **update the args** called `--gateway-server-resources` and `--gateway-client-resources` , in its `Deployment`. It can be done by editing the helm chart values file before installing Liqo or by manually editing the `Deployment`.
+
+Note that all the changes done to the `values.yaml` file are enforced only when Liqo is installed using the `--local-chart-path` argument.
+
 Files to update:
 
 * [cmd/liqo-controller-manager/modules/networking.go](cmd/liqo-controller-manager/modules/networking.go)
+* [deployments/liqo/values.yaml](deployments/liqo/values.yaml#L62-L68)
 
 Reference implementation:
 
 * [cmd/liqo-controller-manager/modules/networking.go](cmd/liqo-controller-manager/modules/networking.go) (WireGuard controller startup wiring)
 
-Responsibility of this module:
-
-* Register protocol controllers in the main manager lifecycle so they actually run.
-
 ### 4. RBAC for new protocol controllers
 
-Add dedicated ClusterRole/Role markers for the new protocol controllers.
+When you add a new controller in the controller-manager, permissions should be declared through kubebuilder RBAC markers in the controller code.
 
-In most cases, protocol controllers will require permissions very similar to existing WireGuard controllers. Reuse the same permission model, adapting only resource names and controller identifiers for clarity.
+Recommended workflow:
+
+1. Add or update `+kubebuilder:rbac` markers in the new/updated controller files.
+2. Regenerate RBAC manifests with `make rbacs`.
+3. Redeploy/upgrade Liqo so the updated ClusterRole is applied.
+
+In most cases, this is enough and you do not need to manually edit generated RBAC YAML files.
+Manual edits are only needed if your controller is intentionally outside the paths scanned by the `rbacs` target.
 
 Files to update:
 
-* protocol controller files where kubebuilder RBAC markers are declared (for example in [pkg/liqo-controller-manager/networking/external-network](pkg/liqo-controller-manager/networking/external-network)/&lt;protocol&gt;/...)
-* `Makefile` (`rbacs` target already available; run generation)
-* generated manifests under [deployments/liqo/files/](deployments/liqo/files/) (do not edit manually, regenerate)
+* controller files under [pkg/liqo-controller-manager/](pkg/liqo-controller-manager/) containing `+kubebuilder:rbac` markers
+* [Makefile](Makefile) (`rbacs` target, only if you add controllers outside currently scanned paths)
+* generated manifests under [deployments/liqo/files/](deployments/liqo/files/) (regenerated, do not edit manually)
 
-Responsibility of this module:
-
-* Ensure each controller has least-privilege access to the resources it watches and reconciles.
-
-### 5. Implement the protocol container entrypoint QUI C'è DA AGGIUNGERE CHE E' BENE USARE COBRA
+### 5. Implement the protocol container entrypoint
 
 The protocol container is responsible for runtime tunnel behavior in the gateway pod.
 
@@ -409,6 +393,23 @@ At minimum it should:
 2. Integrate startup synchronization with gateway leader election logic when enabled.
 3. Start protocol runtime logic (for example, run protocol binary, configure netlink interfaces, configure sessions/peers).
 4. Register and run the `Connection` status controller if required by the runtime design.
+
+Liqo uses [Cobra](https://cobra.dev/) as the command framework for its components.
+
+Why this matters for protocol developers:
+
+* Cobra gives each container a clear CLI contract (flags, defaults, validation), so runtime configuration is explicit and reproducible.
+* The same binary can be configured for different roles/environments only through args, which fits Kubernetes `Deployment` templates well.
+* Startup logic stays organized: parse flags -> build options -> initialize manager/shared scaffolding -> start protocol-specific runtime.
+
+In practice, your new protocol container should follow the same pattern used by existing Liqo components:
+
+1. Define command/flags with Cobra (protocol options, leader election, health/metrics endpoints, container name, etc.).
+2. Convert flags into the options structs consumed by the shared startup scaffold.
+3. Invoke the generic container bootstrap functions.
+4. Register protocol-specific controllers/runnables in the setup callback.
+
+This keeps the entrypoint small and declarative while giving the user the possibility to change options based on the ones exposed by the container.
 
 Files to update:
 
@@ -423,7 +424,7 @@ Reference implementation:
 
 Responsibility of this module:
 
-* Run and maintain protocol runtime in the gateway pod process space.
+* Run and maintain protocol runtime.
 
 #### Runtime and startup synchronization model
 
@@ -452,6 +453,7 @@ When to use the shared scaffold ([pkg/gateway/generic/container.go](pkg/gateway/
 Container naming requirement:
 
 * `--concurrent-containers-names` and actual deployment container names must match exactly.
+  * This argument should be set directly in the template, ([like this example](tutorial-content/wireguardGwServerTemplate.yaml#L89))
 * Mismatches can block startup synchronization and keep protocol container waiting indefinitely.
 
 ### 6. Connection ownership model
@@ -482,7 +484,7 @@ Responsibility of this module:
 
 * Keep ownership boundaries clear between protocol bootstrap and generic status management.
 
-### 7. Container naming and leader election caveat AGGIUNGERE ANCHE CHE BISOGNA AGGIUNGERE AGLI ARGS DEL CONTROLLER MANAGER IL NOME DEI GATEWAYSERVER E GATEWAYCLIENT, AGGIUNGERE ANCHE IL PERCHE DI STA COSA 
+### 7. Container naming and leader election caveat 
 
 When startup synchronization is enabled, container names must be consistent across:
 
