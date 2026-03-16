@@ -1,6 +1,12 @@
 # Liqo Developer Tutorial: Add a new tunneling protocol for inter-cluster networking
 
-This branch introduces a generic external-networking scaffold to simplify the integration of additional tunneling technologies [in Liqo](https://liqo.io/).
+This repo introduces a generic external-networking scaffold to simplify the integration of additional tunneling technologies [in Liqo](https://liqo.io/).
+
+> **Disclaimer:**<br>
+> If your clusters are already connected through an existing L3 network tunnel (for example, a cloud provider VPC/VNet interconnection), you do **not** need to implement a new tunneling technology in Liqo.
+> In this case, install Liqo with networking disabled, run it in offloading-only mode ([description here](https://docs.liqo.io/en/v1.1.2/advanced/use-only-offloading.html)).
+> At this point you need to ensure that this external tunnel provides routability for the Pods.
+> This tutorial is intended for scenarios where Liqo must also provide the inter-cluster tunnel itself.
 
 At the time of writing, Liqo only supports WireGuard as the tunneling technology for [inter-cluster networking](https://docs.liqo.io/en/v1.1.2/advanced/peering/inter-cluster-network.html) (also referred to as 'external networking'). This guide is intended for developers who wish to integrate a new tunneling technology into Liqo.
 Note that the `liqoctl` integration will not be covered by this guide.
@@ -519,5 +525,5 @@ Responsibility of this module:
 
 ## Scope of this tutorial
 
-This guide documents the branch scaffolding and integration model.
+This guide documents the repo scaffolding and integration model.
 It does not define protocol-specific cryptography/session semantics; those must be implemented by each protocol backend.
