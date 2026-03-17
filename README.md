@@ -14,6 +14,8 @@ Note that the `liqoctl` integration will not be covered by this guide.
 
 We recommend to follow this guide and check the mentioned resources in a basic Liqo deployment, like the [multi-cluster deployment mentioned here](https://docs.liqo.io/en/v1.1.2/examples/replicated-deployments.html).
 
+In case additional support is needed, feel free to open an issue on this repo or DM me on the Liqo Slack.
+
 Regarding this topic, Liqo design separates:
 
 * **Protocol-agnostic logic**: gateway process bootstrap, startup orchestration, shared connection health checks, and status updates. This logic is already implemented and should be reused as much as possible.
