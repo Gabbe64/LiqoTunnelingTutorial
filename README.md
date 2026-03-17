@@ -59,9 +59,7 @@ Its responsibilities are:
 
 In the default architecture, the gateway pod has three containers:
 
-<div style="background-color: white; padding: 20px; display: inline-block;">
   <img src="tutorial-content/images/gatewayPod.svg" alt="Logo">
-</div>
 
 1. **Geneve container**:
   * creates and manages Geneve-related interfaces
@@ -88,9 +86,8 @@ Liqo supports a declarative model ([described here](https://docs.liqo.io/en/v1.1
 
 **Note**: the client/server distinction here applies only to the tunnel termination processes. Within Liqo, roles are defined as **Provider** and **Consumer**, and both can function as either client or server in this specific context.
 
-<div align="center" style="background-color: white; padding: 20px; display: inline-block;">
-  <img src="tutorial-content/images/gwserverclient.svg" alt="Logo">
-</div>
+<img src="tutorial-content/images/gatewayPod.svg" alt="Logo">
+
 
 What happens at gateway creation:
 

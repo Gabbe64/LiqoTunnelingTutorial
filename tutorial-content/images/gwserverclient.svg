@@ -1,6 +1,7 @@
 <svg host="65bd71144e" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="532px" height="232px" viewBox="-0.5 -0.5 532 232" content="&lt;mxfile&gt;&lt;diagram id=&quot;o0o6odOBbjejnuELo5QJ&quot; name=&quot;Page-1&quot;&gt;7VnbbqMwEP0aXiNsICSPm/SyK+2uKlXay6MDLlg1GBmTS79+x2AItzRdNdmumlZRi8+MB8/MYZhpLGeZbG8lyeJvIqTcwna4tZwrC2MfzeG3BnYV4Dl+BUSShRWE9sA9e6IGtA1asJDmHUUlBFcs64KBSFMaqA5GpBSbrtqD4N27ZiSiA+A+IHyI/mShiit0hv09/pmyKK7vjKbG4YTUysaTPCah2LQg59pyllIIVV0l2yXlOnZ1XKp9NwekzcEkTdVLNuBqw5rwwvhmzqV2tbNSFGlItT6ynMUmZoreZyTQ0g1kF7BYJdyIHxjnS8GFhHUqUlBahCSPm+3D85kjr6lUdNuCzHlvqUiokjtQqaWuiZ0hz8wsN/tMYMdgcSsLDUhM9qPG9D5AcGFiNB6v+fF40RC4YpYmBK0A5YpI9UlzEICAkzxnQQ3fMF6r0TSslYwNQIzcfi6O+u7PRlFSThRbd5k8FhKz9U4wuEUTfRe5negj1+uayEUhA2p2tZnXM9Tk7ZAhiEhE1cBQmaHGnxclzTmetPyRqiA2wW2lqyGvXXM/73K/TXgLO3jme9e4TKgUj7QleSh/QJJpj0ofvQV87Iltg+dLezJ19B/LA+1lKUAljHvofBQtTfQ15wcM++VukI8YQT0Mz3q68HEW+nFlUBC/khXldyJniokUfFoJpUQCCoSzSAMBEJTK1o5PRqCEDh/Uv0xHM9lG+k0xeSxWVKYUwjxhgba4yOSX8uIqE+EJqkdTBWra4WH58Eaqhzt7ffHwPnj4DniYQjdzBiLif0jE6YCIt0TRDdndUwkeDFgJLqkuH4+GNWFhqLcvJM3ZE1mVpuwB7XQOSaEgcWWPhwaMNW+/kb7iBDnw7F4x8Ic5QGgkCadoJfxBEn4wqQrCvzcEu4AUND19/RhMZ4MUzM+UgfrWnYI85TrOK7iI9MWSF7kOL7ZRLQOzjfhi8oSmR7tu/1xpQiNp+s+HFPcthxR02imlGUDgGL80NSc2FC8D/C4Bd+7WwNXWsLda7dqrOyoZeKOfguenmGqIMKG0xgYbmPjL+cBAzng2XjnsOPP+jOJ2TZxuRkEfQ8p7aA5PM6R4bzikoIPN4ZIzanh+CW88bHvdJIx0Jsg+1ztv9jetCb7o1sR9u9bE/Sja76Bo5+vgFDTs/2f0fEUblvuvCKpmY/89i3P9Bw==&lt;/diagram&gt;&lt;/mxfile&gt;">
     <defs/>
     <g>
+        <rect width="100%" height="100%" fill="white" />
         <rect x="0" y="0" width="230" height="230" rx="34.5" ry="34.5" fill="none" stroke="rgb(0, 0, 0)" stroke-dasharray="3 3" pointer-events="all"/>
         <path d="M 267.63 65 L 140 65" fill="none" stroke="rgb(0, 0, 0)" stroke-miterlimit="10" pointer-events="stroke"/>
         <path d="M 272.88 65 L 265.88 68.5 L 267.63 65 L 265.88 61.5 Z" fill="rgb(0, 0, 0)" stroke="rgb(0, 0, 0)" stroke-miterlimit="10" pointer-events="all"/>
@@ -117,4 +118,5 @@
             </text>
         </a>
     </switch>
+    
 </svg>
