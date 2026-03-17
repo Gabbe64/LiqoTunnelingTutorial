@@ -417,6 +417,8 @@ In practice, your new protocol container should follow the same pattern used by 
 
 This keeps the entrypoint small and declarative while giving the user the possibility to change options based on the ones exposed by the container.
 
+>The tunnel interface **must be named** liqo-tunnel. It is also recommended to use the link-local addresses `169.254.18.1/30` and `169.254.18.2/30` for the two tunnel interfaces. ([this happens also with WireGuard](pkg/gateway/tunnel/netlink.go#L25-L30))
+
 Files to update:
 
 * [cmd/gateway](cmd/gateway)/&lt;protocol&gt;/main.go (new protocol binary entrypoint)
